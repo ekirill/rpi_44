@@ -18,10 +18,10 @@ logger = logging.getLogger("lighter")
 
 
 class I2C:
-    CHAN_1 = 0b1000000
-    CHAN_2 = 0b1000001
-    CHAN_3 = 0b1000010
-    CHAN_4 = 0b1000011
+    CHAN_1 = 0b1000000  # 0x40 (foto-resistor)
+    CHAN_2 = 0b1000001  # 0x41 (thermistor)
+    CHAN_3 = 0b1000010  # 0x42 (not connected)
+    CHAN_4 = 0b1000011  # 0x43 (variable resistor)
 
     CHAN_OUT = 0b1000000
 
@@ -50,7 +50,7 @@ class Daytime:
     DAY = 'day'
 
     THRESHOLDS = {
-        NIGHT: 7,
+        NIGHT: 4,
         EVENING: 20,
     }
 
@@ -58,15 +58,15 @@ class Daytime:
 I2C_DEV_ADDR = 0x48
 I2C_BUS_ID = 1
 PHOTO_SENSOR_CHAN = I2C.CHAN_1
-TEMP_SENSOR_CHAN = I2C.CHAN_3
+TEMP_SENSOR_CHAN = I2C.CHAN_2
 SWITCHER_PIN = 26
 
 TZ = pytz.timezone('Europe/Moscow')
 
-LIGHT_ON_MIN_TIME = datetime.time(15, 20, tzinfo=TZ)
+LIGHT_ON_MIN_TIME = datetime.time(19, 0, tzinfo=TZ)
 LIGHT_ON_MAX_DELAY = 60
 
-LIGHT_OFF_MIN_TIME = datetime.time(15, 30, tzinfo=TZ)
+LIGHT_OFF_MIN_TIME = datetime.time(0, 0, tzinfo=TZ)
 LIGHT_OFF_MAX_DELAY = 60
 
 
