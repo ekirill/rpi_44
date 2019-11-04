@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python3.5
 import datetime
 import random
 import time
@@ -50,22 +50,23 @@ class Daytime:
     DAY = 'day'
 
     THRESHOLDS = {
-        NIGHT: 25,
-        EVENING: 50,
+        NIGHT: 7,
+        EVENING: 20,
     }
 
 
 I2C_DEV_ADDR = 0x48
 I2C_BUS_ID = 1
 PHOTO_SENSOR_CHAN = I2C.CHAN_1
-SWITCHER_PIN = 18
+TEMP_SENSOR_CHAN = I2C.CHAN_3
+SWITCHER_PIN = 26
 
 TZ = pytz.timezone('Europe/Moscow')
 
-LIGHT_ON_MIN_TIME = datetime.time(19, 0, tzinfo=TZ)
+LIGHT_ON_MIN_TIME = datetime.time(15, 20, tzinfo=TZ)
 LIGHT_ON_MAX_DELAY = 60
 
-LIGHT_OFF_MIN_TIME = datetime.time(0, 0, tzinfo=TZ)
+LIGHT_OFF_MIN_TIME = datetime.time(15, 30, tzinfo=TZ)
 LIGHT_OFF_MAX_DELAY = 60
 
 
@@ -102,13 +103,14 @@ class Lamp:
             self._set_light_state(self.ON)
 
 
-class LightSensor:
-    def __init__(self, i2c, sensor_channel):
-        self.sensor_channel = sensor_channel
+class Sensor:
+    def __init__(self, i2c, photo_sensor_channel, temp_sensor_channel):
+        self.photo_sensor_channel = photo_sensor_channel
+        self.temp_sensor_channel = temp_sensor_channel
         self.i2c = i2c
 
-    def _read_sensor_value(self):
-        value = self.i2c.read_chan(self.sensor_channel)
+    def _read_sensor_value(self, chan):
+        value = self.i2c.read_chan(chan)
         value = 255 - value
         return value
 
@@ -116,7 +118,7 @@ class LightSensor:
         self.i2c.write_out(value)
 
     def get_daytime(self):
-        value = self._read_sensor_value()
+        value = self._read_sensor_value(self.photo_sensor_channel)
 
         daytime = Daytime.DAY
         for dt, threshold in Daytime.THRESHOLDS.items():
@@ -124,9 +126,17 @@ class LightSensor:
                 daytime = dt
                 break
 
-        logger.debug("Sensor value is: %d, assuming it is daytime: %s", value, datetime)
+        self.get_temp()
+        logger.debug("Photo sensor value is: %d, assuming it is daytime: %s", value, daytime)
 
         return daytime
+
+    def get_temp(self):
+        value = self._read_sensor_value(self.temp_sensor_channel)
+
+        logger.debug("Temp sensor value is: %d", value)
+
+        return value
 
 
 class LighterState:
@@ -142,7 +152,7 @@ class Lighter:
 
     def __init__(self):
         i2c = I2C(I2C_DEV_ADDR, I2C_BUS_ID)
-        self.light_sensor = LightSensor(i2c, PHOTO_SENSOR_CHAN)
+        self.light_sensor = Sensor(i2c, PHOTO_SENSOR_CHAN, TEMP_SENSOR_CHAN)
         self.lamp = Lamp()
         self.set_state(LighterState.WAIT_MORNING)
 
@@ -198,6 +208,7 @@ class Lighter:
                         if now >= Lighter.get_today_turn_off_min_time():
                             self.set_state(LighterState.WAIT_MORNING)
                             logger.warning("Night detected, but it's time to sleep. Waiting for morning")
+                            time.sleep(60)
                             continue
 
                         self.set_state(LighterState.WAIT_ON)
