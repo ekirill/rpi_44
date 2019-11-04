@@ -8,14 +8,16 @@ import pytz as pytz
 from RPi import GPIO
 from smbus import SMBus
 
+
 logging.basicConfig(
-    level=logging.DEBUG, format="lighter: %(asctime)s;%(levelname)s;%(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+    level=logging.DEBUG,
+    format="lighter: %(asctime)s;%(levelname)s;%(message)s", datefmt="%Y-%m-%d %H:%M:%S",
+    filename="/var/log/lighter.log",
 )
 logger = logging.getLogger("lighter")
 
+
 class I2C:
-
-
     CHAN_1 = 0b1000000
     CHAN_2 = 0b1000001
     CHAN_3 = 0b1000010
@@ -55,15 +57,15 @@ class Daytime:
 
 I2C_DEV_ADDR = 0x48
 I2C_BUS_ID = 1
-SENSOR_CHAN = I2C.CHAN_1
+PHOTO_SENSOR_CHAN = I2C.CHAN_1
 SWITCHER_PIN = 18
 
 TZ = pytz.timezone('Europe/Moscow')
 
-LIGHT_ON_MIN_TIME = datetime.time(22, 37, tzinfo=TZ)
+LIGHT_ON_MIN_TIME = datetime.time(19, 0, tzinfo=TZ)
 LIGHT_ON_MAX_DELAY = 60
 
-LIGHT_OFF_MIN_TIME = datetime.time(22, 38, tzinfo=TZ)
+LIGHT_OFF_MIN_TIME = datetime.time(0, 0, tzinfo=TZ)
 LIGHT_OFF_MAX_DELAY = 60
 
 
@@ -78,7 +80,7 @@ class Lamp:
 
     def _set_light_state(self, state):
         if time.time() - self.last_switch_time < self.MIN_SWITCH_DELAY:
-            logger.info('Switched less then 10 seconds ago, ignoring switch')
+            logger.warning('Switched less then 10 seconds ago, ignoring switch')
             return
 
         if state == self.OFF:
@@ -91,12 +93,12 @@ class Lamp:
 
     def switch_off(self):
         if self.state == self.ON:
-            logger.info('Lights OFF')
+            logger.debug('Lights OFF')
             self._set_light_state(self.OFF)
 
     def switch_on(self):
         if self.state == self.OFF:
-            logger.info('Lights ON')
+            logger.debug('Lights ON')
             self._set_light_state(self.ON)
 
 
@@ -115,12 +117,14 @@ class LightSensor:
 
     def get_daytime(self):
         value = self._read_sensor_value()
+
         daytime = Daytime.DAY
         for dt, threshold in Daytime.THRESHOLDS.items():
             if value < threshold:
                 daytime = dt
                 break
-        logger.debug('Daytime %s', daytime)
+
+        logger.debug("Sensor value is: %d, assuming it is daytime: %s", value, datetime)
 
         return daytime
 
@@ -138,7 +142,7 @@ class Lighter:
 
     def __init__(self):
         i2c = I2C(I2C_DEV_ADDR, I2C_BUS_ID)
-        self.light_sensor = LightSensor(i2c, SENSOR_CHAN)
+        self.light_sensor = LightSensor(i2c, PHOTO_SENSOR_CHAN)
         self.lamp = Lamp()
         self.set_state(LighterState.WAIT_MORNING)
 
@@ -193,7 +197,7 @@ class Lighter:
                     if now > Lighter.get_today_turn_on_min_time():
                         if now >= Lighter.get_today_turn_off_min_time():
                             self.set_state(LighterState.WAIT_MORNING)
-                            logger.info("Night detected, but it's time to sleep. Waiting for morning")
+                            logger.warning("Night detected, but it's time to sleep. Waiting for morning")
                             continue
 
                         self.set_state(LighterState.WAIT_ON)
@@ -207,9 +211,9 @@ class Lighter:
 
                         time.sleep(time_to_sleep)
                     else:
-                        logger.info('Night detected, but its too early. Doing nothing')
+                        logger.debug('Night detected, but its too early. Doing nothing')
 
-                time.sleep(1)
+                time.sleep(60)
             elif self.state == LighterState.WAIT_ON:
                 self.lamp.switch_on()
                 self.set_state(LighterState.WAIT_OFF)
@@ -227,14 +231,14 @@ class Lighter:
                 self.lamp.switch_off()
                 self.set_state(LighterState.WAIT_MORNING)
                 logger.info('Light turned off. Waiting for morning')
-                time.sleep(10)
+                time.sleep(60)
             elif self.state == LighterState.WAIT_MORNING:
                 daytime = self.light_sensor.get_daytime()
                 if daytime != Daytime.NIGHT:
                     self.set_state(LighterState.WAIT_NIGHT)
                     logger.info('Morning. Waiting for night.')
 
-                time.sleep(1)
+                time.sleep(60)
 
     def cleanup(self):
         self.lamp.switch_off()
