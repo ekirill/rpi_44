@@ -123,7 +123,7 @@ class Sensor:
         value = self._read_sensor_value(self.photo_sensor_channel)
 
         daytime = Daytime.DAY
-        for dt, threshold in Daytime.THRESHOLDS.items():
+        for dt, threshold in sorted(Daytime.THRESHOLDS.items(), key=lambda x: x[1]):
             if value < threshold:
                 daytime = dt
                 break
@@ -133,10 +133,13 @@ class Sensor:
         if len(set(self.latest_values)) > 1:
             daytime = self.latest_values[-2]
 
-        if len(self.latest_values) > 1:
-            self.latest_values = self.latest_values[1:3]
+        logger.debug(
+            "Photo sensor value is: %d, latest values are `%s`, assuming it is daytime: %s",
+            value, self.latest_values, daytime
+        )
 
-        logger.debug("Photo sensor value is: %d, assuming it is daytime: %s", value, daytime)
+        if len(self.latest_values) > 3:
+            self.latest_values = self.latest_values[1:]
 
         return daytime
 
@@ -286,6 +289,7 @@ class Lighter:
     def run(self):
         while True:
             time.sleep(60)
+
             now = Lighter.get_now()
 
             if self.execute_planned_changes(now):
