@@ -263,7 +263,7 @@ class Lighter:
         self.state_change_plan = None
         return True
 
-    def plan_state_change(self, now, desired_state):
+    def plan_changes(self, now, desired_state):
         if desired_state == Lamp.ON:
             time_to_off = Lighter.get_next_turn_off_min_time(now)
             latest_time_to_on = now + datetime.timedelta(seconds=LIGHT_ON_MAX_DELAY)
@@ -297,7 +297,7 @@ class Lighter:
 
             desired_state = self.get_desired_state(now)
             if self.lamp.state != desired_state:
-                self.plan_state_change(now, desired_state)
+                self.plan_changes(now, desired_state)
 
     def cleanup(self):
         self.lamp.set_state(Lamp.OFF)
