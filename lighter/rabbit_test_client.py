@@ -38,4 +38,5 @@ if __name__ == '__main__':
         time.sleep(999)
         print('FIN')
     finally:
+        channel.stop_consuming()
         connection.close()
