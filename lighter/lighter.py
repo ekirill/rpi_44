@@ -3,6 +3,7 @@ import datetime
 import random
 import time
 import logging
+from systemd.daemon import notify
 
 import pytz as pytz
 from RPi import GPIO
@@ -11,8 +12,7 @@ from smbus import SMBus
 
 logging.basicConfig(
     level=logging.DEBUG,
-    format="lighter: %(asctime)s;%(levelname)s;%(message)s", datefmt="%Y-%m-%d %H:%M:%S",
-    filename="/var/log/lighter.log",
+    format="LIGHTER: %(asctime)s;%(levelname)s;%(message)s", datefmt="%Y-%m-%d %H:%M:%S",
 )
 logger = logging.getLogger("lighter")
 
@@ -240,7 +240,7 @@ class Lighter:
         if desired_state_by_sensor == desired_state_by_time:
             final_desired = desired_state_by_sensor
         else:
-            final_desired = desired_state_by_time
+            final_desired = Lamp.OFF
 
         logger.debug(
             'Desired by time: `%s`, desired by sensor: `%s`, final desired = `%s`',
@@ -309,6 +309,7 @@ if __name__ == '__main__':
     GPIO.setmode(GPIO.BCM)
     GPIO.setup(SWITCHER_PIN, GPIO.OUT, initial=GPIO.HIGH)
     lighter = Lighter()
+    notify('READY=1')
     try:
         lighter.run()
     finally:
