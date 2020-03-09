@@ -20,7 +20,7 @@ MAX_RETRY_DELAY = 30 * 60
 
 MEDIA_FOLDER = '/var/lib/motion'
 TRASH_FOLDER = os.path.join(MEDIA_FOLDER, 'trash')
-DISK_FOLDER = 'CAMERA'
+DAV_FOLDER = os.getenv('EKIRILL_WEBDAV_FOLDER', 'CAMERA')
 MAX_TRASH_SIZE = 500 * 1024 * 1024
 EXCLUDE_CONTAINS = ('lastsnap', )
 
@@ -55,7 +55,7 @@ def get_new_media(path):
 def upload_media(disk_client, filename):
     file_base_name = filename.split('/')[-1]
 
-    dst = os.path.join(DISK_FOLDER, file_base_name)
+    dst = os.path.join(DAV_FOLDER, file_base_name)
     disk_client.upload(filename, dst)
     logger.info('Uploaded `{}` to `{}`'.format(file_base_name, dst))
     os.rename(filename, os.path.join(TRASH_FOLDER, file_base_name))
