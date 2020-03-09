@@ -99,9 +99,8 @@ if __name__ == '__main__':
     while True:
         new_media = get_new_media(MEDIA_FOLDER)
         for filename in new_media:
-            for excl in EXCLUDE_CONTAINS:
-                if excl in filename:
-                    continue
+            if any(excl in filename for excl in EXCLUDE_CONTAINS):
+                continue
 
             try:
                 upload_media(disk_client, filename)
