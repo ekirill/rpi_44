@@ -15,8 +15,6 @@ ch.setLevel(logging.DEBUG)
 ch.setFormatter(formatter)
 logger.addHandler(ch)
 
-ch_f = logging.RotatingFileHandler()
-
 
 MAX_RETRY_DELAY = 30 * 60
 
