@@ -22,6 +22,7 @@ MEDIA_FOLDER = '/var/lib/motion'
 TRASH_FOLDER = os.path.join(MEDIA_FOLDER, 'trash')
 DISK_FOLDER = 'CAMERA'
 MAX_TRASH_SIZE = 500 * 1024 * 1024
+EXCLUDE_CONTAINS = ('lastsnap', )
 
 
 def file_is_free(fpath):
@@ -98,6 +99,10 @@ if __name__ == '__main__':
     while True:
         new_media = get_new_media(MEDIA_FOLDER)
         for filename in new_media:
+            for excl in EXCLUDE_CONTAINS:
+                if excl in filename:
+                    continue
+
             try:
                 upload_media(disk_client, filename)
                 retry_delay = 1
