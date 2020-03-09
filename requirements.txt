@@ -1,3 +1,2 @@
-environ-config==19.1.0
-psutil
-YaDiskClient
+psutil==5.7.0
+requests==2.23.0

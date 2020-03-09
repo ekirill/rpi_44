@@ -2,10 +2,12 @@ import logging
 import os
 
 from requests import request
-from YaDiskClient.YaDiskClient import YaDiskException
-from requests.exceptions import ReadTimeout
 
-logger = logging.getLogger('ekhome_yadisk')
+logger = logging.getLogger('ekhome_camera')
+
+
+class WebDavException(Exception):
+    pass
 
 
 class ProgressNotifier(object):
@@ -34,15 +36,15 @@ class ProgressNotifier(object):
 class Client(object):
     login = None
     password = None
-    url = "https://webdav.yandex.ru/"
     namespaces = {'d': 'DAV:'}
 
-    def __init__(self, login, password):
+    def __init__(self, base_url,  login, password):
         super(Client, self).__init__()
+        self.url = base_url
         self.login = login
         self.password = password
         if self.login is None or self.password is None:
-            raise YaDiskException(400, "Please, specify login and password for Yandex.Disk account.")
+            raise WebDavException(400, "Please, specify login and password for WebDav account.")
 
     def _sendRequest(self, type, add_url="/", add_headers=None, data=None):
         headers = {"Accept": "*/*"}
@@ -56,17 +58,31 @@ class Client(object):
         if resp.status_code == 200:
             return resp
         else:
-            raise YaDiskException(resp.status_code, resp.content)
+            raise WebDavException(resp.status_code, resp.content)
+
+    def exists(self, path):
+        resp = self._sendRequest("HEAD", path)
+        if resp.status_code == 200:
+            return True
+        else:
+            return False
+
+    def delete(self, path):
+        resp = self._sendRequest("DELETE", path)
+        if resp.status_code == 204:
+            return resp
+        else:
+            raise WebDavException(resp.status_code, resp.content)
 
     def upload(self, file, path):
         """Upload file."""
 
+        if self.exists(path):
+            logger.debug('WebDav file `%s` exists, overwriting', path)
+            self.delete(path)
+
         data = ProgressNotifier(file)
-        try:
-            resp = self._sendRequest("PUT", path, data=data)
-        except ReadTimeout:
-            # Yandex Disk WebDav always times out on big files
-            return
+        resp = self._sendRequest("PUT", path, data=data)
 
         if resp.status_code != 201:
-            raise YaDiskException(resp.status_code, resp.content)
+            raise WebDavException(resp.status_code, resp.content)
