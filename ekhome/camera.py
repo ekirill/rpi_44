@@ -18,7 +18,7 @@ logger.addHandler(ch)
 
 MAX_RETRY_DELAY = 30 * 60
 
-MEDIA_FOLDER = '/var/lib/motion'
+MEDIA_FOLDER = os.getenv('EKIRILL_MEDIA_FOLDER', 'CAMERA')
 TRASH_FOLDER = os.path.join(MEDIA_FOLDER, 'trash')
 DAV_FOLDER = os.getenv('EKIRILL_WEBDAV_FOLDER', 'CAMERA')
 MAX_TRASH_SIZE = 500 * 1024 * 1024
@@ -38,27 +38,40 @@ def file_is_free(fpath):
     return True
 
 
-def get_new_media(path):
+def get_new_media(path, exclude_dir=None, exclude_contains=None):
     media = []
-    for _, _, files in os.walk(path):
-        for file in files:
-            filename = os.path.join(path, file)
-            if file_is_free(filename):
-                media.append(filename)
 
-        # just root folder is needed
-        break
+    if exclude_dir is None:
+        exclude_dir = []
+    if exclude_contains is None:
+        exclude_contains = []
+
+    for dirpath, _, files in os.walk(path):
+        if dirpath == path:
+            # skipping root dir
+            continue
+
+        if dirpath in exclude_dir:
+            continue
+
+        for file in files:
+            if any(excl in file for excl in EXCLUDE_CONTAINS):
+                continue
+
+            filename = os.path.join(dirpath, file)
+            if file_is_free(filename):
+                media.append((dirpath.split("/")[-1], file))
 
     return media
 
 
-def upload_media(disk_client, filename):
-    file_base_name = filename.split('/')[-1]
-
-    dst = os.path.join(DAV_FOLDER, file_base_name)
-    disk_client.upload(filename, dst)
-    logger.info('Uploaded `{}` to `{}`'.format(file_base_name, dst))
-    os.rename(filename, os.path.join(TRASH_FOLDER, file_base_name))
+def upload_media(disk_client, base_folder, camera_name, filename):
+    dav_folder = DAV_FOLDER.replace("{{ name }}", camera_name)
+    dst = os.path.join(dav_folder, filename)
+    full_name = os.path.join(base_folder, camera_name, filename)
+    disk_client.upload(full_name, dst)
+    logger.info('Uploaded `{}` to `{}`'.format(full_name, dst))
+    os.rename(full_name, os.path.join(TRASH_FOLDER, filename))
 
 
 def validate_trash():
@@ -97,13 +110,10 @@ if __name__ == '__main__':
     disk_client = Client(base_url, login, password)
     retry_delay = 1
     while True:
-        new_media = get_new_media(MEDIA_FOLDER)
-        for filename in new_media:
-            if any(excl in filename for excl in EXCLUDE_CONTAINS):
-                continue
-
+        new_media = get_new_media(MEDIA_FOLDER, exclude_dir=[TRASH_FOLDER], exclude_contains=EXCLUDE_CONTAINS)
+        for camera_name, filename in new_media:
             try:
-                upload_media(disk_client, filename)
+                upload_media(disk_client, MEDIA_FOLDER, camera_name, filename)
                 retry_delay = 1
             except Exception as e:
                 logger.error('Could not upload file `%s`: %r', filename, e)
